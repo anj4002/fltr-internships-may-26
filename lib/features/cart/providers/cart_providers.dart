@@ -80,6 +80,8 @@ class CartNotifier extends AsyncNotifier<CartState> {
       total: current.total + item.price,
       );
 
+    //Task 3: Earlier we used to persist the cart and then update 
+    //the data now we update the data then persist the cart.
        state = AsyncData(next);
        await _cartRepository.persistCart(next);
   }
