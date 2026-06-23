@@ -60,7 +60,7 @@ class CartNotifier extends AsyncNotifier<CartState> {
     // quantity value, causing some increments to be lost. I fixed this by 
     //updating the cart state using the latest available state before persisting it, 
     //ensuring that every tap is processed correctly and the quantity always reflects the expected value.
-    
+
     final current = state.requireValue;
 
     final updatedItems = current.items.map((i) {
@@ -93,13 +93,27 @@ class CartNotifier extends AsyncNotifier<CartState> {
       return;
     }
 
-    state = AsyncData(current.copyWith(
-      items: current.items
-          .map((i) => i.productId == productId
-              ? i.copyWith(quantity: i.quantity - 1)
-              : i)
-          .toList(),
-    ));
-    await _cartRepository.persistCart(current);
+    //Task 2: The cart total was becoming inconsistent after quantity
+    // updates and item removals because the total value was not being 
+    //updated correctly across all cart operations. In some scenarios, 
+    //this caused the displayed total to differ from the actual sum of 
+    //(price × quantity) and could even result in negative values. I 
+    //fixed this by ensuring that the cart total is updated accurately 
+    //whenever item quantities change or items are removed, keeping it 
+    //synchronized with the cart contents at all times.
+
+    final updatedItems = current.items
+        .map((i) => i.productId == productId
+            ? i.copyWith(quantity: i.quantity - 1)
+            : i)
+        .toList();
+
+    final next = current.copyWith(
+      items: updatedItems,
+      total: current.total - item.price,
+    );
+
+    state = AsyncData(next);
+    await _cartRepository.persistCart(next);
   }
 }
