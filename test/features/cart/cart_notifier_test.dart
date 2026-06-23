@@ -98,8 +98,21 @@ void main() {
         // the final quantity should be 4 (1 initial + 3 increments).
         // Currently fails because incrementQuantity captures a stale item
         // reference before awaiting the persist call (Bug #1).
+        await container.read(cartNotifierProvider.future);
+
+        await container.read(cartNotifierProvider.notifier).addItem(testItem);
+
+        await Future.wait([
+          container.read(cartNotifierProvider.notifier).incrementQuantity("p1"),
+          container.read(cartNotifierProvider.notifier).incrementQuantity("p2"),
+          container.read(cartNotifierProvider.notifier).incrementQuantity("p1"),
+        ]);
+
+        final state =
+        container.read(cartNotifierProvider).requireValue;
+
+    expect(state.items.first.quantity, 4);
       },
-      skip: 'Bug #1 — stale capture race condition in incrementQuantity',
     );
 
     test(
@@ -108,8 +121,19 @@ void main() {
         // Add item at \$10, increment twice → expect total == \$30.
         // Currently fails because incrementQuantity does not update the
         // cached `total` field on CartState (Bug #2).
+
+        await container.read(cartNotifierProvider.future);
+        await container.read(cartNotifierProvider.notifier).addItem(testItem);
+
+        await container.read(cartNotifierProvider.notifier).incrementQuantity('p1');
+
+        await container.read(cartNotifierProvider.notifier).incrementQuantity('p1');
+
+        final state =
+        container.read(cartNotifierProvider).requireValue;
+
+    expect(state.total, closeTo(30.0, 0.01));
       },
-      skip: 'Bug #2 — total field not updated in incrementQuantity',
     );
 
     test(
@@ -119,8 +143,20 @@ void main() {
         // Expected total: \$0.00.
         // Currently total drifts negative because removeItem subtracts
         // price × quantity but `total` was never updated during increments (Bug #2).
+        await container.read(cartNotifierProvider.future);
+
+        await container.read(cartNotifierProvider.notifier).addItem(testItem);
+
+        await container .read(cartNotifierProvider.notifier).incrementQuantity('p1');
+
+        await container.read(cartNotifierProvider.notifier).incrementQuantity('p1');
+
+        await container.read(cartNotifierProvider.notifier).removeItem('p1');
+
+        final state =container.read(cartNotifierProvider).requireValue;
+
+        expect(state.total, 0.0);
       },
-      skip: 'Bug #2 — stale total causes negative drift on remove',
     );
 
     test(
@@ -130,8 +166,37 @@ void main() {
         // (simulating a restart) and verify the persisted quantity is correct.
         // Currently fails because incrementQuantity never calls persistCart
         // after updating state (Bug #3).
+         CartState persistedState = const CartState();
+
+         when(() => mockRepo.persistCart(any())).thenAnswer((invocation) async {
+          persistedState = invocation.positionalArguments.first as CartState;
+        });
+
+        when(() => mockRepo.loadCart()).thenAnswer((_) => persistedState);
+
+        await container.read(cartNotifierProvider.future);
+
+         await container.read(cartNotifierProvider.notifier).addItem(testItem);
+
+          await container
+              .read(cartNotifierProvider.notifier)
+              .incrementQuantity('p1');
+
+          final restartedContainer = ProviderContainer(
+            overrides: [
+              cartRepositoryProvider.overrideWithValue(mockRepo),
+            ],
+          );
+
+          addTearDown(restartedContainer.dispose);
+
+          final restartedState =
+              await restartedContainer.read(cartNotifierProvider.future);
+
+          expect(restartedState.items.length, 1);
+          expect(restartedState.items.first.quantity, 2);
+
       },
-      skip: 'Bug #3 — persistCart not called after incrementQuantity',
     );
   });
 }
