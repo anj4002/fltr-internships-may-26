@@ -54,18 +54,34 @@ class CartNotifier extends AsyncNotifier<CartState> {
   }
 
   Future<void> incrementQuantity(String productId) async {
-    final item = state.requireValue.items
-        .firstWhere((i) => i.productId == productId);
+    //Task 1: The cart quantity was not updating correctly when 
+    //users tapped the "+" button multiple times in quick succession. 
+    //Due to asynchronous state updates, each tap was reading an outdated
+    // quantity value, causing some increments to be lost. I fixed this by 
+    //updating the cart state using the latest available state before persisting it, 
+    //ensuring that every tap is processed correctly and the quantity always reflects the expected value.
+    
+    final current = state.requireValue;
 
-    await _cartRepository.persistCart(state.requireValue);
+    final updatedItems = current.items.map((i) {
+      if(i.productId == productId) {
+        return i.copyWith(quantity: i.quantity +1);
+      }
+      return i;
+    }).toList();
 
-    state = AsyncData(state.requireValue.copyWith(
-      items: state.requireValue.items
-          .map((i) => i.productId == productId
-              ? i.copyWith(quantity: item.quantity + 1)
-              : i)
-          .toList(),
-    ));
+    final item =
+      current.items.firstWhere(
+        (i) => i.productId == productId,
+        );
+
+    final next = current.copyWith(
+      items: updatedItems, 
+      total: current.total + item.price,
+      );
+
+       state = AsyncData(next);
+       await _cartRepository.persistCart(next);
   }
 
   Future<void> decrementQuantity(String productId) async {
