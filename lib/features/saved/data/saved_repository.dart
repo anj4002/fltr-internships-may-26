@@ -44,11 +44,16 @@ class SavedRepository {
   }
 
   Future<void> removeItem(String productId) async {
-    // TODO: implement
+    // TODO: Task 4: Adding remove from saved - users can now remove the saved items
+    final items = getSavedItems();
+    await _persist(
+      items.where((i) => i.productId != productId).toList(),
+    );
   }
 
   Future<void> moveToCart(String productId) async {
-    // TODO: implement
+    // TODO: Task 5: Implementing the move to cart functionality for saved items
+    await removeItem(productId);
   }
 
   Future<void> _persist(List<SavedItem> items) async {
