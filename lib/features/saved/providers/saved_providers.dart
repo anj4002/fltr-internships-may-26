@@ -36,10 +36,37 @@ class SavedNotifier extends AsyncNotifier<List<SavedItem>> {
   }
 
   Future<void> removeFromSaved(String productId) async {
-    // TODO: implement
+    // TODO: Task 4: removing from saved items
+    final current = state.valueOrNull ?? [];
+
+     await _savedRepository.removeItem(productId);
+     state = AsyncData(
+    current.where((i) => i.productId != productId).toList(),
+  );
   }
 
   Future<void> moveToCart(String productId) async {
-    // TODO: implement
+    // TODO: Task 4: enabling moving saved items to cart
+
+    final current = state.valueOrNull ?? [];
+
+    final item = current.firstWhere((i)=> i.productId == productId);
+
+    await ref.read(cartNotifierProvider.notifier).addItem(
+      CartItem(
+        productId: item.productId,
+        name: item.name,
+        imageUrl: item.imageUrl,
+        price: item.price,
+        quantity: item.quantity,
+      )
+    );
+    await _savedRepository.moveToCart(
+      productId
+    );
+
+     state = AsyncData(
+    current.where((i) => i.productId != productId).toList(),
+  );
   }
 }
